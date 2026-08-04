@@ -28,6 +28,8 @@ export async function updateWorkflow(
     graph?: WorkflowGraph;
     enabled?: boolean;
     webhookUrl?: string | null;
+    clientEnabled?: boolean;
+    clientModelName?: string | null;
   },
 ): Promise<WorkflowDetail> {
   const { data } = await api.patch(`/orchestrator/workflows/${id}`, payload);

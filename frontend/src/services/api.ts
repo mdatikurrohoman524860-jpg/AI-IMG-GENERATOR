@@ -2,6 +2,7 @@ import { localStore } from "@/lib/local-store";
 import { docCategories, docPages, type DocCategory, type DocPage } from "@/lib/docs-data";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+const PROJECT_KEY = process.env.NEXT_PUBLIC_PROJECT_KEY || "";
 
 function getAuthHeaders(): Record<string, string> {
   if (typeof window === "undefined") return {};
@@ -30,6 +31,14 @@ function errorMessage(data: any): string {
   if (typeof data.message === "string") return data.message;
   if (Array.isArray(data.message) && data.message.length) return data.message.join(", ");
   return "Request failed";
+}
+
+export interface ClientModel {
+  id: string;
+  name: string;
+  provider: string;
+  model: string;
+  capability: "image" | "video" | "text";
 }
 
 interface GenerationRow {
@@ -209,6 +218,18 @@ class ApiClient {
       success: true,
       data: (data.models ?? []).map((m) => ({ id: m.name, label: m.label, maxImages: m.maxImages ?? 4 })),
     };
+  }
+
+  // ---------- Client model catalog (public, project key) ----------
+
+  async fetchClientModels() {
+    if (!PROJECT_KEY) return { success: true, data: [] as ClientModel[] };
+    const res = await fetch(`${this.baseUrl}/client/${PROJECT_KEY}/models`, {
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(errorMessage(data));
+    return { success: true, data: (data.models ?? []) as ClientModel[] };
   }
 
   async getUsage() {

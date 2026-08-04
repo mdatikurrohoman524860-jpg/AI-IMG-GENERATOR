@@ -52,7 +52,7 @@ export function WorkflowBuilderPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const { workflowId: id, workflowName, workflowDescription, workflowEnabled, workflowWebhookUrl, nodes, edges } = store;
+      const { workflowId: id, workflowName, workflowDescription, workflowEnabled, workflowWebhookUrl, workflowClientEnabled, workflowClientModelName, nodes, edges } = store;
       if (!id) return null;
       const graph = {
         nodes: nodes.map((n) => ({
@@ -74,6 +74,8 @@ export function WorkflowBuilderPage() {
         description: workflowDescription || undefined,
         enabled: workflowEnabled,
         webhookUrl: workflowWebhookUrl.trim() || null,
+        clientEnabled: workflowClientEnabled,
+        clientModelName: workflowClientModelName.trim() || null,
         graph,
       });
       return updated;

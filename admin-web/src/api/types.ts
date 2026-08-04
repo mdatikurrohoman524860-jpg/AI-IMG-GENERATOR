@@ -301,6 +301,8 @@ export interface WorkflowSummary {
   version: number;
   webhookUrl?: string | null;
   projectId?: string | null;
+  clientEnabled?: boolean;
+  clientModelName?: string | null;
   createdAt: string;
   updatedAt: string;
   nodeCount?: number;

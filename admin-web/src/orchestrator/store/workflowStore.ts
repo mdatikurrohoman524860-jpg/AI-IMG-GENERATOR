@@ -45,6 +45,8 @@ interface WorkflowState {
   workflowDescription: string;
   workflowEnabled: boolean;
   workflowWebhookUrl: string;
+  workflowClientEnabled: boolean;
+  workflowClientModelName: string;
   nodes: FlowNode[];
   edges: FlowEdge[];
   selected: string[];
@@ -100,6 +102,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   workflowDescription: '',
   workflowEnabled: true,
   workflowWebhookUrl: '',
+  workflowClientEnabled: false,
+  workflowClientModelName: '',
   nodes: [],
   edges: [],
   selected: [],
@@ -144,6 +148,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       workflowDescription: detail.description ?? '',
       workflowEnabled: detail.enabled,
       workflowWebhookUrl: detail.webhookUrl ?? '',
+      workflowClientEnabled: detail.clientEnabled ?? false,
+      workflowClientModelName: detail.clientModelName ?? '',
       nodes,
       edges,
       selected: [],
@@ -176,6 +182,12 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
   setWorkflowWebhookUrl(webhookUrl) {
     set({ workflowWebhookUrl: webhookUrl, dirty: true });
+  },
+  setWorkflowClientEnabled(clientEnabled) {
+    set({ workflowClientEnabled: clientEnabled, dirty: true });
+  },
+  setWorkflowClientModelName(clientModelName) {
+    set({ workflowClientModelName: clientModelName, dirty: true });
   },
 
   snapshot() {
@@ -453,6 +465,8 @@ export interface WorkflowActions {
     description: string | null;
     enabled: boolean;
     webhookUrl?: string | null;
+    clientEnabled?: boolean;
+    clientModelName?: string | null;
     graph: { nodes: Array<{ id: string; type: string; position: XYPosition; config?: Record<string, unknown> }>; edges: Array<{ id: string; source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }> };
   }) => void;
   setSelected: (ids: string[]) => void;
@@ -461,6 +475,8 @@ export interface WorkflowActions {
   setWorkflowDescription: (description: string) => void;
   setWorkflowEnabled: (enabled: boolean) => void;
   setWorkflowWebhookUrl: (webhookUrl: string) => void;
+  setWorkflowClientEnabled: (clientEnabled: boolean) => void;
+  setWorkflowClientModelName: (clientModelName: string) => void;
   snapshot: () => void;
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;

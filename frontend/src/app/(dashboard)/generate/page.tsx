@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useState, useCallback, useRef } from "react";
+import { Suspense, useState, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/services/api";
+import { api, type ClientModel } from "@/services/api";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,14 @@ const MODELS = [
   { id: "flux", label: "Flux Dev", badge: "Recommended", color: "from-emerald-500/10 to-emerald-500/5" },
   { id: "turbo", label: "Flux Schnell", badge: "Fast", color: "from-blue-500/10 to-blue-500/5" },
 ];
+
+const MODEL_FALLBACKS: Record<string, string> = {
+  flux: "Flux Dev",
+  turbo: "Flux Schnell",
+  image: "Flux Dev",
+  video: "Video",
+  text: "Text",
+};
 
 const ASPECT_RATIOS = ["1:1", "4:3", "3:4", "16:9", "9:16", "21:9"];
 const STYLES = ["Cinematic", "Minimalist", "Cyberpunk", "Vaporwave", "Watercolor", "3D Render", "Pixel Art", "Oil Painting", "Sketch", "Anime"];
@@ -72,6 +80,39 @@ function GenerateContent() {
   const [fullscreen, setFullscreen] = useState(false);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+
+  const { data: clientModelsData, isLoading: clientModelsLoading } = useQuery({
+    queryKey: ["client-models"],
+    queryFn: () => api.fetchClientModels(),
+    staleTime: 60_000,
+  });
+
+  const clientModels: ClientModel[] = clientModelsData?.data ?? [];
+
+  const liveModels = useMemo(() => {
+    const list: typeof MODELS = [];
+    for (const cm of clientModels) {
+      const cap = cm.capability === "image"
+        ? (type === "VIDEO" ? "video" : "image")
+        : cm.capability;
+      if (cap === "image" || cap === "video") {
+        list.push({
+          id: cm.id,
+          label: cm.name,
+          badge: cm.provider,
+          color: "from-emerald-500/10 to-emerald-500/5",
+        });
+      }
+    }
+    return list;
+  }, [clientModels, type]);
+
+  const visibleModels = liveModels.length ? liveModels : MODELS;
+  const currentModelLabel =
+    visibleModels.find((m) => m.id === model)?.label ??
+    MODEL_FALLBACKS[model] ??
+    visibleModels[0]?.label ??
+    "Flux Dev";
 
   const { data: generationsData, isLoading: historyLoading } = useQuery({
     queryKey: ["generations"],
@@ -248,7 +289,7 @@ function GenerateContent() {
               <div>
                 <label className="block text-[11px] text-neutral-500 font-medium mb-1.5">Model</label>
                 <div className="flex gap-1.5">
-                  {MODELS.map((m) => (
+                  {visibleModels.map((m) => (
                     <button
                       key={m.id}
                       onClick={() => setModel(m.id)}
@@ -266,6 +307,11 @@ function GenerateContent() {
                       )}>{m.badge}</span>
                     </button>
                   ))}
+                  {clientModelsLoading && (
+                    <div className="flex-1 px-3 py-2.5 rounded-xl text-xs text-neutral-500 border border-neutral-800/40 bg-neutral-800/30 animate-pulse">
+                      Loading models…
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -412,7 +458,7 @@ function GenerateContent() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-neutral-300">Processing with {MODELS.find(m => m.id === model)?.label}</p>
+                    <p className="text-xs font-medium text-neutral-300">Processing with {currentModelLabel}</p>
                     <span className="text-[10px] text-neutral-600">~30s</span>
                   </div>
                   <p className="text-[10px] text-neutral-600 mt-0.5">Enhancing quality, applying style...</p>

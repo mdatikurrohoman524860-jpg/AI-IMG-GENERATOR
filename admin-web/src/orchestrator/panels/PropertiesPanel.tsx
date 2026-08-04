@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { getNodeDefinition, toolKeyForNodeType } from '../nodeRegistry';
-import { useWorkflowStore, statusColor } from '../store/workflowStore';
+import { useWorkflowStore, statusColor, type FlowNode } from '../store/workflowStore';
 import { FieldEditor } from '../fields/FieldEditor';
 import { ProviderCredentialEditor } from '../fields/ProviderCredentialEditor';
 import { ChainEditor, type ChainCapability } from './ChainEditor';
@@ -9,6 +9,38 @@ import { StorageStatus } from './StorageStatus';
 
 function capabilityFor(nodeType: string): ChainCapability {
   return nodeType === 'videoModel' ? 'video' : 'image';
+}
+
+const MODEL_NODE_TYPES = new Set([
+  'imageModel', 'imageGeneration',
+  'iconModel', 'iconGeneration',
+  'logoModel', 'logoGeneration',
+  'object3dModel', 'object3dGeneration',
+  'videoModel', 'videoGeneration',
+  'chatModel', 'textGeneration',
+]);
+
+function clientModelStep(nodes: FlowNode[]): { provider: string; model: string } | null {
+  for (const n of nodes) {
+    if (!MODEL_NODE_TYPES.has(n.data.type)) continue;
+    const chain = Array.isArray(n.data.config.chain) ? (n.data.config.chain as Array<Record<string, unknown>>) : [];
+    for (const s of chain) {
+      if (
+        typeof s?.provider === 'string' && s.provider.trim() &&
+        typeof s?.model === 'string' && s.model.trim()
+      ) {
+        return { provider: s.provider.trim(), model: s.model.trim() };
+      }
+    }
+    if (typeof n.data.config.provider === 'string' && n.data.config.provider.trim()) {
+      return {
+        provider: n.data.config.provider.trim(),
+        model: typeof n.data.config.model === 'string' ? n.data.config.model.trim() : '',
+      };
+    }
+    return null;
+  }
+  return null;
 }
 
 export function PropertiesPanel() {
@@ -46,13 +78,16 @@ export function PropertiesPanel() {
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted">Properties</h3>
         </div>
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <span className="text-3xl opacity-40">◈</span>
-          <p className="text-xs leading-relaxed text-faint">
-            Select a node to edit its settings.
-            <br />
-            Click empty canvas to clear the selection.
-          </p>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center">
+            <span className="text-3xl opacity-40">◈</span>
+            <p className="text-xs leading-relaxed text-faint">
+              Select a node to edit its settings.
+              <br />
+              Click empty canvas to clear the selection.
+            </p>
+          </div>
+          <WorkflowPublishSection />
         </div>
       </aside>
     );
@@ -258,5 +293,62 @@ export function PropertiesPanel() {
         </button>
       </div>
     </aside>
+  );
+}
+
+function WorkflowPublishSection() {
+  const nodes = useWorkflowStore((s) => s.nodes);
+  const clientEnabled = useWorkflowStore((s) => s.workflowClientEnabled);
+  const clientModelName = useWorkflowStore((s) => s.workflowClientModelName);
+  const setClientEnabled = useWorkflowStore((s) => s.setWorkflowClientEnabled);
+  const setClientModelName = useWorkflowStore((s) => s.setWorkflowClientModelName);
+
+  const step = useMemo(() => clientModelStep(nodes), [nodes]);
+
+  return (
+    <div className="rounded-xl border border-line bg-elevated p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-faint">
+          Publish to client site
+        </span>
+        <button
+          onClick={() => setClientEnabled(!clientEnabled)}
+          className={`relative h-5 w-9 rounded-full transition-colors ${clientEnabled ? 'bg-blue-500' : 'bg-line'}`}
+        >
+          <span
+            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${clientEnabled ? 'left-[18px]' : 'left-0.5'}`}
+          />
+        </button>
+      </div>
+
+      {clientEnabled && (
+        <div className="mt-3 space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-faint">
+              Public model name
+            </span>
+            <input
+              value={clientModelName}
+              onChange={(e) => setClientModelName(e.target.value)}
+              placeholder="e.g. Aurora XL"
+              className="w-full rounded-lg border border-line bg-ink px-2.5 py-1.5 text-xs text-inktext outline-none placeholder:text-faint focus:border-blue"
+            />
+          </label>
+          {step ? (
+            <div className="rounded-lg border border-line bg-ink px-3 py-2 text-[11px] text-muted">
+              Exposes <span className="font-medium text-inktext">{step.model || 'default model'}</span> via{' '}
+              <span className="font-medium text-inktext">{step.provider}</span>
+              <span className="block pt-0.5 text-faint">
+                Listed on the client site only if the provider is healthy and the model is enabled.
+              </span>
+            </div>
+          ) : (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
+              No model node found. Add an image / video / text generation node to publish this workflow.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
