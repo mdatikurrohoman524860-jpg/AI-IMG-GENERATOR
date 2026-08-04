@@ -96,7 +96,7 @@ export function WorkflowCanvas() {
         snapToGrid
         snapGrid={[8, 8]}
         connectionMode={'strict' as ConnectionMode}
-        deleteKeyCode={['Backspace', 'Delete']}
+        deleteKeyCode={null}
         multiSelectionKeyCode={['Meta', 'Control']}
         selectionKeyCode={['Shift']}
         selectionOnDrag

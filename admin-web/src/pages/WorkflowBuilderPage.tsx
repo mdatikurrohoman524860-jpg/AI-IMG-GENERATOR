@@ -40,7 +40,10 @@ export function WorkflowBuilderPage() {
   }, [workflowId, creating]);
 
   useEffect(() => {
-    if (detail) store.loadWorkflow(detail);
+    if (!detail) return;
+    const s = useWorkflowStore.getState();
+    const alreadyLoaded = s.workflowId === detail.id && !!s.lastSavedGraph;
+    if (!alreadyLoaded) store.loadWorkflow(detail);
   }, [detail]);
 
   useEffect(() => {
@@ -140,34 +143,64 @@ export function WorkflowBuilderPage() {
   }, [store, saveMutation, prompt, queryClient]);
 
   useEffect(() => {
+    const isEditableTarget = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+    };
+
     const onKeyDown = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
-      if (e.key.toLowerCase() === 's') {
+      const key = e.key.toLowerCase();
+      const editable = isEditableTarget(e);
+      if (editable) {
+        if (mod && key === 's') {
+          e.preventDefault();
+          save();
+        }
+        return;
+      }
+      if (mod) {
+        if (key === 's') {
+          e.preventDefault();
+          save();
+        } else if (key === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) store.redo();
+          else store.undo();
+        } else if (key === 'y') {
+          e.preventDefault();
+          store.redo();
+        } else if (key === 'x') {
+          e.preventDefault();
+          const sel = useWorkflowStore.getState().selected;
+          if (sel.length) {
+            store.copySelection();
+            store.deleteNodes(sel);
+          }
+        } else if (key === 'c') {
+          e.preventDefault();
+          store.copySelection();
+        } else if (key === 'v') {
+          e.preventDefault();
+          store.pasteSelection();
+        } else if (key === 'd') {
+          e.preventDefault();
+          store.duplicateNodes(useWorkflowStore.getState().selected);
+        } else if (key === 'a') {
+          e.preventDefault();
+          store.setSelected(useWorkflowStore.getState().nodes.map((n) => n.id));
+        } else if (key === 'r' && !e.shiftKey) {
+          e.preventDefault();
+          void run();
+        }
+        return;
+      }
+      if (key === 'backspace' || key === 'delete') {
         e.preventDefault();
-        save();
-      } else if (e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) store.redo();
-        else store.undo();
-      } else if (e.key.toLowerCase() === 'y') {
-        e.preventDefault();
-        store.redo();
-      } else if (e.key.toLowerCase() === 'c') {
-        e.preventDefault();
-        store.copySelection();
-      } else if (e.key.toLowerCase() === 'v') {
-        e.preventDefault();
-        store.pasteSelection();
-      } else if (e.key.toLowerCase() === 'd') {
-        e.preventDefault();
-        store.duplicateNodes(store.selected);
-      } else if (e.key.toLowerCase() === 'a') {
-        e.preventDefault();
-        store.setSelected(store.nodes.map((n) => n.id));
-      } else if (e.key.toLowerCase() === 'r' && !e.shiftKey) {
-        e.preventDefault();
-        void run();
+        const sel = useWorkflowStore.getState().selected;
+        if (sel.length) store.deleteNodes(sel);
       }
     };
     window.addEventListener('keydown', onKeyDown);

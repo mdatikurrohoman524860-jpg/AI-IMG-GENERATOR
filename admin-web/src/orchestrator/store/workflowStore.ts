@@ -9,6 +9,7 @@ import {
   type Connection,
   type XYPosition,
   type NodePositionChange,
+  type NodeSelectionChange,
 } from '@xyflow/react';
 import dagre from 'dagre';
 import { getNodeDefinition } from '../nodeRegistry';
@@ -137,7 +138,6 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       targetHandle: e.targetHandle ?? undefined,
       type: 'status',
     }));
-    const past = get().past.length ? get().past : [{ nodes: get().nodes, edges: get().edges }];
     set({
       workflowId: detail.id,
       workflowName: detail.name,
@@ -147,7 +147,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       nodes,
       edges,
       selected: [],
-      past,
+      past: [],
       future: [],
       dirty: false,
       runState: 'idle',
@@ -185,14 +185,29 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
   onNodesChange(changes: NodeChange<FlowNode>[]) {
     const nodes = applyNodeChanges(changes, get().nodes);
-    const selected = changes
-      .filter((c) => c.type === 'select')
-      .map((c) => c.id);
+    const selectChanges = changes.filter(
+      (c): c is NodeSelectionChange => c.type === 'select',
+    );
+    let selected = get().selected;
+    if (selectChanges.length) {
+      selected = [...selected];
+      for (const c of selectChanges) {
+        if (c.selected) {
+          if (!selected.includes(c.id)) selected.push(c.id);
+        } else {
+          selected = selected.filter((id) => id !== c.id);
+        }
+      }
+    }
     const positionMoves = changes.filter(
       (c): c is NodePositionChange => c.type === 'position' && c.position !== undefined,
     );
-    if (positionMoves.length > 0) set({ dirty: true });
-    set((s) => ({ nodes, selected: selected.length ? selected : s.selected }));
+    const removals = changes.some((c) => c.type === 'remove');
+    set((s) => ({
+      nodes,
+      selected,
+      dirty: s.dirty || positionMoves.length > 0 || removals,
+    }));
   },
 
   onEdgesChange(changes: EdgeChange<FlowEdge>[]) {
