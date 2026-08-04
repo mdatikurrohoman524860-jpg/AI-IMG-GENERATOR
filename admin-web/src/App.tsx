@@ -7,10 +7,8 @@ import AuditPage from './pages/AuditPage';
 import DashboardPage from './pages/DashboardPage';
 import ExecutionsPage from './pages/ExecutionsPage';
 import LoginPage from './pages/LoginPage';
-import { NodeLibraryPage } from './pages/NodeLibraryPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { ProvidersPage } from './pages/ProvidersPage';
-import { RoutesPage } from './pages/RoutesPage';
 import SettingsPage from './pages/SettingsPage';
 import { StoragePage } from './pages/StoragePage';
 import { ToolsPage } from './pages/ToolsPage';
@@ -41,9 +39,7 @@ export default function App() {
           <Route path="workflows/:workflowId" element={<WorkflowBuilderPage />} />
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="providers" element={<ProvidersPage />} />
-          <Route path="routes" element={<RoutesPage />} />
           <Route path="tools" element={<ToolsPage />} />
-          <Route path="node-library" element={<NodeLibraryPage />} />
           <Route path="storage" element={<StoragePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

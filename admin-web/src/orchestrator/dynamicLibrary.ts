@@ -90,6 +90,8 @@ interface NodeLibraryState {
   capabilities: LibraryCapability[];
   loaded: boolean;
   load: () => Promise<void>;
+  /** Re-fetch from the backend (after inline credential / route / provider edits). */
+  reload: () => Promise<void>;
 }
 
 const FIELD_TYPES: Record<string, NodeField['type']> = {
@@ -212,6 +214,9 @@ export const useNodeLibraryStore = create<NodeLibraryState>((set) => ({
     } catch (err) {
       set({ status: 'error', error: err instanceof Error ? err.message : String(err) });
     }
+  },
+  reload: async () => {
+    await useNodeLibraryStore.getState().load();
   },
 }));
 

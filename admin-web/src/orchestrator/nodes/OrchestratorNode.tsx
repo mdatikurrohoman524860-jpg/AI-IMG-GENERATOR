@@ -3,6 +3,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { getNodeDefinition, categoryMeta, toolKeyForNodeType } from '../nodeRegistry';
 import { FieldEditor } from '../fields/FieldEditor';
 import { useWorkflowStore, statusColor, type NodeStatus, type NodeData } from '../store/workflowStore';
+import { useNodeLibraryStore } from '../dynamicLibrary';
 
 function StatusPill({ status }: { status?: NodeStatus }) {
   if (!status) return null;
@@ -46,7 +47,14 @@ export const OrchestratorNode = memo(function OrchestratorNode({ id, data, selec
       return `${String(d.config.provider ?? '—')} · ${String(d.config.model ?? 'auto')}`;
     }
     if (d.type === 'modelRoute') {
-      return String(d.config.routeId ?? '') ? `route: ${d.config.routeId}` : 'inline fallback route';
+      const routeId = String(d.config.routeId ?? '');
+      if (routeId) {
+        const routeName = useNodeLibraryStore
+          .getState()
+          .modelRoutes.find((r) => r.id === routeId || r.name === routeId)?.name;
+        return routeName ? `route: ${routeName}` : `route: ${routeId.slice(0, 8)}…`;
+      }
+      return 'inline fallback route';
     }
     if (d.type === 'storageNode') {
       return String(d.config.storage ?? '') ? `→ ${d.config.storage}` : '→ active provider';

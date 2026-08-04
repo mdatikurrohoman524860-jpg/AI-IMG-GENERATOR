@@ -29,9 +29,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     label: 'AI',
     items: [
       { to: '/providers', label: 'Providers', icon: '⚡' },
-      { to: '/routes', label: 'Model Routes', icon: '⇄' },
       { to: '/tools', label: 'Tools', icon: '🧰' },
-      { to: '/node-library', label: 'Node Library', icon: '🧩' },
       { to: '/storage', label: 'Storage', icon: '☁️' },
     ],
   },

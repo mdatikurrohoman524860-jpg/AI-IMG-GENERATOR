@@ -23,7 +23,7 @@ function useSourceOptions(source: NodeField['source'], sourceContext: unknown) {
     }));
   }
   if (source === 'routes') {
-    return modelRoutes.map((r) => ({ value: r.name, label: r.name }));
+    return modelRoutes.map((r) => ({ value: r.id, label: r.name }));
   }
   if (source === 'storageProviders') {
     const sorted = [...storageProviders].sort((a, b) => Number(b.isActive) - Number(a.isActive));
