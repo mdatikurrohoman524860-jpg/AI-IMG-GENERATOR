@@ -92,11 +92,11 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   {
     type: 'imageModel',
     category: 'AI',
-    label: 'Image Model',
+    label: 'Image Tools',
     description: 'Generate images from a prompt via the bound provider chain.',
     icon: '🎨',
     color: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
-    defaults: { name: 'Image Model', count: 1, chain: [] },
+    defaults: { name: 'Image Tools', count: 1, chain: [] },
     fields: [{ key: 'name', label: 'Node name', type: 'text' }, { key: 'count', label: 'Count', type: 'number', min: 1, max: 4, step: 1 }],
     outputHandles: 'single',
     inputHandles: 'single',

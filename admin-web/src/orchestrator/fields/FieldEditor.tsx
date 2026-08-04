@@ -49,6 +49,22 @@ export function FieldEditor({
   const datalistId = useId();
   const sourceOptions = useSourceOptions(field.source, sourceContext);
 
+  if (field.source === 'models' && sourceOptions.length) {
+    const current = String(value ?? '');
+    if (current && !sourceOptions.some((o) => o.value === current)) {
+      sourceOptions.unshift({ value: current, label: `${current} (custom)` });
+    }
+    return (
+      <select value={current} onChange={(e) => onChange(e.target.value)} className={base}>
+        {sourceOptions.map((o) => (
+          <option key={o.value} value={o.value} className="bg-elevated">
+            {o.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
   if (field.source) {
     if (!sourceOptions.length) {
       return (

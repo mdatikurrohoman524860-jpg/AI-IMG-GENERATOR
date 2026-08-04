@@ -81,6 +81,8 @@ export interface ProviderAdmin {
   enabled: boolean;
   priority: number;
   timeoutMs: number;
+  maxRpm: number;
+  maxTpm: number;
   supportsImages: boolean;
   supportsVision: boolean;
   supportsVideo: boolean;

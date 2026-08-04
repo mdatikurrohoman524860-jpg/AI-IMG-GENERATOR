@@ -27,11 +27,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
   },
   {
     label: 'AI',
-    items: [
-      { to: '/providers', label: 'Providers', icon: '⚡' },
-      { to: '/tools', label: 'Tools', icon: '🧰' },
-      { to: '/storage', label: 'Storage', icon: '☁️' },
-    ],
+    items: [{ to: '/storage', label: 'Storage', icon: '☁️' }],
   },
   {
     label: 'Manage',

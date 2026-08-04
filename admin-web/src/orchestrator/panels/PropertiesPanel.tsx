@@ -216,7 +216,11 @@ export function PropertiesPanel() {
                         <span className="block text-[10px] font-semibold uppercase tracking-wider text-faint">
                           Provider key
                         </span>
-                        <ProviderCredentialEditor providerName={node.data.config.provider} />
+                        <ProviderCredentialEditor
+                          providerName={node.data.config.provider}
+                          modelValue={typeof node.data.config.model === 'string' ? node.data.config.model : ''}
+                          onModelChange={(model) => updateNodeConfig(node.id, { model })}
+                        />
                       </div>
                     )}
 

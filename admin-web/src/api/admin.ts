@@ -30,6 +30,8 @@ export interface ProviderPatch {
   supportsVideo?: boolean;
   priority?: number;
   timeoutMs?: number;
+  maxRpm?: number;
+  maxTpm?: number;
   apiKey?: string;
 }
 
