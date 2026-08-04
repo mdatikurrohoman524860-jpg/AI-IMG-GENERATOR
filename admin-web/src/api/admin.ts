@@ -44,10 +44,15 @@ export async function createAdminProvider(payload: {
   supportsVision?: boolean;
   supportsVideo?: boolean;
   priority?: number;
+  timeoutMs?: number;
+  maxRpm?: number;
+  maxTpm?: number;
+  imageEndpoint?: string;
   apiKey?: string;
   models?: Array<{
     displayName: string;
     internalName: string;
+    enabled?: boolean;
     supportsImages?: boolean;
     supportsVision?: boolean;
     supportsVideo?: boolean;

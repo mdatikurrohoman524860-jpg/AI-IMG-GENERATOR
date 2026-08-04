@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchAdminProviders, fetchRoutingVariables } from '../../api/admin';
 import type { ProviderAdmin } from '../../api/types';
 import { useWorkflowStore } from '../store/workflowStore';
+import { CustomProviderForm } from '../fields/CustomProviderForm';
 
 export type ChainCapability = 'image' | 'video' | 'mask';
 
@@ -45,6 +46,7 @@ export function ChainEditor({
 
   const [draftProvider, setDraftProvider] = useState('');
   const [draftModel, setDraftModel] = useState('');
+  const [customOpen, setCustomOpen] = useState(false);
 
   const matchingProviders = (providers ?? []).filter((p) =>
     capability === 'video' ? p.supportsVideo : p.supportsImages,
@@ -169,18 +171,28 @@ export function ChainEditor({
           <select
             value={draftProvider}
             onChange={(e) => {
+              if (e.target.value === '__custom__') {
+                setDraftProvider('');
+                setCustomOpen(true);
+                return;
+              }
               setDraftProvider(e.target.value);
               setDraftModel('');
             }}
             className="w-full rounded-lg border border-line bg-ink px-1.5 py-1.5 text-[11px] text-inktext outline-none focus:border-blue"
           >
             <option value="">provider…</option>
-            {matchingProviders.map((p) => (
-              <option key={p.id} value={p.name} disabled={!p.enabled}>
-                {p.displayName}
-                {!p.enabled ? ' (disabled)' : ''}
-              </option>
-            ))}
+            {(providers ?? []).map((p) => {
+              const capable = matchingProviders.some((m) => m.name === p.name);
+              return (
+                <option key={p.id} value={p.name}>
+                  {p.displayName}
+                  {capable ? '' : ` (${capability === 'video' ? 'no video' : 'no image'})`}
+                  {!p.enabled ? ' (disabled)' : ''}
+                </option>
+              );
+            })}
+            <option value="__custom__">＋ Custom provider…</option>
           </select>
           <select
             value={draftModel}
@@ -203,6 +215,16 @@ export function ChainEditor({
         >
           + Add step
         </button>
+        {customOpen && (
+          <CustomProviderForm
+            capability={capability === 'video' ? 'video' : 'image'}
+            onCreate={(name, modelName) => {
+              setCustomOpen(false);
+              setDraftProvider(name);
+              setDraftModel(modelName);
+            }}
+          />
+        )}
       </div>
     </div>
   );

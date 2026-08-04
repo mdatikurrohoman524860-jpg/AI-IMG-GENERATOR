@@ -10,6 +10,7 @@ import {
 } from '../../api/admin';
 import { errorMessage } from '../../api/client';
 import { useNodeLibraryStore } from '../dynamicLibrary';
+import { CustomProviderForm } from './CustomProviderForm';
 
 function providerKeyTone(status: string): string {
   if (status === 'healthy') return 'bg-emerald-500/15 text-emerald-400';
@@ -30,10 +31,12 @@ export function ProviderCredentialEditor({
   providerName,
   modelValue,
   onModelChange,
+  onProviderSelect,
 }: {
   providerName: string;
   modelValue?: string;
   onModelChange?: (model: string) => void;
+  onProviderSelect?: (provider: string) => void;
 }) {
   const queryClient = useQueryClient();
   const reloadLibrary = useNodeLibraryStore((s) => s.reload);
@@ -41,6 +44,7 @@ export function ProviderCredentialEditor({
   const [rotating, setRotating] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
   const [draft, setDraft] = useState<{
     baseUrl: string;
     maxRpm: string;
@@ -169,6 +173,41 @@ export function ProviderCredentialEditor({
 
   return (
     <div className="space-y-2 rounded-lg border border-line bg-elevated/60 p-2.5">
+      {onProviderSelect && (
+        <div className="flex items-center gap-1.5">
+          <select
+            value={providerName}
+            onChange={(e) => {
+              if (e.target.value === '__custom__') {
+                setCustomOpen((v) => !v);
+                return;
+              }
+              setCustomOpen(false);
+              onProviderSelect(e.target.value);
+            }}
+            className={inputBase}
+          >
+            {(providers ?? []).map((p) => (
+              <option key={p.id} value={p.name} className="bg-elevated">
+                {p.displayName}
+                {!p.enabled ? ' (disabled)' : ''}
+              </option>
+            ))}
+            <option value="__custom__" className="bg-elevated">
+              ＋ New custom provider…
+            </option>
+          </select>
+        </div>
+      )}
+      {customOpen && (
+        <CustomProviderForm
+          capability="text"
+          onCreate={(name) => {
+            setCustomOpen(false);
+            onProviderSelect?.(name);
+          }}
+        />
+      )}
       <div className="flex items-center gap-1.5">
         <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-inktext">
           {provider.displayName}

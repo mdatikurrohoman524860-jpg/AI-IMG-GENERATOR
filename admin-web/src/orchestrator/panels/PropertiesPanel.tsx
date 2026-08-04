@@ -220,6 +220,9 @@ export function PropertiesPanel() {
                           providerName={node.data.config.provider}
                           modelValue={typeof node.data.config.model === 'string' ? node.data.config.model : ''}
                           onModelChange={(model) => updateNodeConfig(node.id, { model })}
+                          onProviderSelect={(provider) =>
+                            updateNodeConfig(node.id, { provider, model: '' })
+                          }
                         />
                       </div>
                     )}
