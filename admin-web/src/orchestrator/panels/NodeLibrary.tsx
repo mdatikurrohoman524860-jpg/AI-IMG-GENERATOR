@@ -1,6 +1,14 @@
-import { useMemo, useState } from 'react';
-import { NODE_DEFINITIONS, CATEGORY_ORDER, CATEGORY_META, type Category } from '../nodeRegistry';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  NODE_DEFINITIONS,
+  categoryOrder,
+  categoryMeta,
+  CATEGORY_META,
+  type Category,
+  type NodeDefinition,
+} from '../nodeRegistry';
 import { useWorkflowStore } from '../store/workflowStore';
+import { ensureNodeLibraryLoaded, useNodeLibraryStore } from '../dynamicLibrary';
 
 const DRAG_TYPE = 'application/lumina-node';
 
@@ -16,35 +24,46 @@ export function NodeLibrary() {
   const recent = useWorkflowStore((s) => s.recent);
   const toggleFavorite = useWorkflowStore((s) => s.toggleFavorite);
   const addNode = useWorkflowStore((s) => s.addNode);
+  const dynamicDefs = useNodeLibraryStore((s) => s.definitions);
+
+  useEffect(() => {
+    ensureNodeLibraryLoaded();
+  }, []);
+
+  const defs = useMemo(() => {
+    const dynamicKeys = new Set(dynamicDefs.map((d) => d.type));
+    return [...dynamicDefs, ...NODE_DEFINITIONS.filter((d) => !dynamicKeys.has(d.type))];
+  }, [dynamicDefs]);
+  const order = useMemo(() => categoryOrder(defs), [defs]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return q
-      ? NODE_DEFINITIONS.filter((d) => d.label.toLowerCase().includes(q) || d.category.toLowerCase().includes(q) || d.description.toLowerCase().includes(q))
-      : NODE_DEFINITIONS;
-  }, [query]);
+      ? defs.filter((d) => d.label.toLowerCase().includes(q) || d.category.toLowerCase().includes(q) || d.description.toLowerCase().includes(q))
+      : defs;
+  }, [query, defs]);
 
   const grouped = useMemo(() => {
-    const map = new Map<string, typeof NODE_DEFINITIONS>();
+    const map = new Map<string, NodeDefinition[]>();
     if (!query) {
       const favDefs = favorites
-        .map((t) => NODE_DEFINITIONS.find((d) => d.type === t))
-        .filter((d): d is (typeof NODE_DEFINITIONS)[number] => !!d);
+        .map((t) => defs.find((d) => d.type === t))
+        .filter((d): d is NodeDefinition => !!d);
       if (favDefs.length) map.set('★', favDefs);
 
       const recentDefs = recent
         .filter((t) => !favorites.includes(t))
-        .map((t) => NODE_DEFINITIONS.find((d) => d.type === t))
-        .filter((d): d is (typeof NODE_DEFINITIONS)[number] => !!d)
+        .map((t) => defs.find((d) => d.type === t))
+        .filter((d): d is NodeDefinition => !!d)
         .slice(0, 8);
       if (recentDefs.length) map.set('🕒', recentDefs);
     }
-    CATEGORY_ORDER.forEach((cat) => {
-      const defs = filtered.filter((d) => d.category === cat);
-      if (defs.length) map.set(cat, defs);
+    order.forEach((cat) => {
+      const catDefs = filtered.filter((d) => d.category === cat);
+      if (catDefs.length) map.set(cat, catDefs);
     });
     return map;
-  }, [filtered, favorites, recent, query]);
+  }, [filtered, favorites, recent, query, order, defs]);
 
   const onDragStart = (e: React.DragEvent, type: string) => {
     e.dataTransfer.setData(DRAG_TYPE, type);
@@ -56,7 +75,7 @@ export function NodeLibrary() {
       <div className="p-3 pb-2">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted">Node library</h3>
-          <span className="text-[10px] text-faint">{NODE_DEFINITIONS.length} nodes</span>
+          <span className="text-[10px] text-faint">{defs.length} nodes</span>
         </div>
         <input
           value={query}
@@ -71,7 +90,7 @@ export function NodeLibrary() {
         ) : (
           [...grouped.entries()].map(([key, defs]) => {
             const isSpecial = key === '★' || key === '🕒';
-            const meta = isSpecial ? SPECIAL_HEADERS[key] : CATEGORY_META[key as Category];
+            const meta = isSpecial ? SPECIAL_HEADERS[key] : (CATEGORY_META[key as Category] ?? categoryMeta(key));
             const displayLabel = isSpecial ? SPECIAL_HEADERS[key].label : key;
             const isCollapsed = collapsed[key] ?? false;
             return (
@@ -103,6 +122,14 @@ export function NodeLibrary() {
                           <span className="block truncate text-xs text-inktext">{def.label}</span>
                           <span className="block truncate text-[10px] text-faint">{def.description}</span>
                         </span>
+                        {def.simulate === false && (
+                          <span
+                            title="Registered but no runtime handler yet"
+                            className="shrink-0 rounded border border-amber-500/30 bg-amber-500/10 px-1 py-0.5 text-[8px] font-semibold uppercase text-amber-400"
+                          >
+                            beta
+                          </span>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

@@ -1,10 +1,17 @@
 import { api } from './client';
 import type {
   AdminExecutionList,
+  ModelRoute,
+  ModelRouteStep,
+  NodeLibrary,
   ProviderAdmin,
+  ProviderCredential,
   ProviderModel,
+  ProviderTestResult,
   RoutingVariable,
   StorageAsset,
+  StorageDriver,
+  StorageProvider,
   ToolAdmin,
   WorkflowExecution,
 } from './types';
@@ -110,6 +117,53 @@ export async function deleteAdminProviderModel(
   return data;
 }
 
+export interface ProviderCredentialPayload {
+  label?: string;
+  enabled?: boolean;
+  priority?: number;
+  apiKey?: string;
+}
+
+export async function createAdminProviderCredential(
+  providerId: string,
+  payload: ProviderCredentialPayload,
+): Promise<ProviderCredential> {
+  const { data } = await api.post(`/admin/providers/${providerId}/credentials`, payload);
+  return data;
+}
+
+export async function updateAdminProviderCredential(
+  providerId: string,
+  credentialId: string,
+  patch: ProviderCredentialPayload,
+): Promise<ProviderCredential> {
+  const { data } = await api.patch(
+    `/admin/providers/${providerId}/credentials/${credentialId}`,
+    patch,
+  );
+  return data;
+}
+
+export async function deleteAdminProviderCredential(
+  providerId: string,
+  credentialId: string,
+): Promise<{ removed: boolean }> {
+  const { data } = await api.delete(
+    `/admin/providers/${providerId}/credentials/${credentialId}`,
+  );
+  return data;
+}
+
+export async function testAdminProviderCredential(
+  providerId: string,
+  credentialId: string,
+): Promise<ProviderTestResult> {
+  const { data } = await api.post(
+    `/admin/providers/${providerId}/credentials/${credentialId}/test`,
+  );
+  return data;
+}
+
 export async function fetchAdminTools(): Promise<ToolAdmin[]> {
   const { data } = await api.get('/admin/tools');
   return data;
@@ -138,6 +192,91 @@ export async function fetchStorageAssets(
 
 export async function deleteStorageAsset(id: string): Promise<{ deleted: boolean }> {
   const { data } = await api.delete(`/admin/storage/assets/${id}`);
+  return data;
+}
+
+export async function fetchStorageProviders(): Promise<StorageProvider[]> {
+  const { data } = await api.get('/admin/storage/providers');
+  return data;
+}
+
+export interface StorageProviderPayload {
+  name?: string;
+  driver?: StorageDriver;
+  config?: Record<string, unknown>;
+  enabled?: boolean;
+  isActive?: boolean;
+  priority?: number;
+}
+
+export async function createStorageProvider(
+  payload: StorageProviderPayload,
+): Promise<StorageProvider> {
+  const { data } = await api.post('/admin/storage/providers', payload);
+  return data;
+}
+
+export async function updateStorageProvider(
+  id: string,
+  payload: StorageProviderPayload,
+): Promise<StorageProvider> {
+  const { data } = await api.patch(`/admin/storage/providers/${id}`, payload);
+  return data;
+}
+
+export async function deleteStorageProvider(id: string): Promise<{ removed: boolean }> {
+  const { data } = await api.delete(`/admin/storage/providers/${id}`);
+  return data;
+}
+
+export async function testStorageProvider(
+  id: string,
+): Promise<{ ok: boolean; latencyMs: number; message: string }> {
+  const { data } = await api.post(`/admin/storage/providers/${id}/test`);
+  return data;
+}
+
+export async function fetchAdminRoutes(): Promise<ModelRoute[]> {
+  const { data } = await api.get('/admin/routes');
+  return data;
+}
+
+export async function createAdminRoute(payload: {
+  name: string;
+  description?: string;
+  steps?: ModelRouteStep[];
+  retryPolicy?: Record<string, unknown>;
+}): Promise<ModelRoute> {
+  const { data } = await api.post('/admin/routes', payload);
+  return data;
+}
+
+export async function updateAdminRoute(
+  id: string,
+  patch: {
+    name?: string;
+    description?: string | null;
+    steps?: ModelRouteStep[];
+    retryPolicy?: Record<string, unknown>;
+    enabled?: boolean;
+  },
+): Promise<ModelRoute> {
+  const { data } = await api.patch(`/admin/routes/${id}`, patch);
+  return data;
+}
+
+export async function deleteAdminRoute(id: string): Promise<{ removed: boolean }> {
+  const { data } = await api.delete(`/admin/routes/${id}`);
+  return data;
+}
+
+export async function fetchNodeLibrary(): Promise<NodeLibrary> {
+  const { data } = await api.get('/admin/nodes');
+  return data;
+}
+
+export async function syncModelCapabilities(): Promise<number> {
+  const { data } = await api.post('/admin/nodes/sync-model-capabilities');
   return data;
 }
 

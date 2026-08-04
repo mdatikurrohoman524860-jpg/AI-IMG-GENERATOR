@@ -9,6 +9,8 @@ export interface NodeField {
   max?: number;
   step?: number;
   placeholder?: string;
+  /** Live-pick source: the field becomes a typeable picker fed by the backend node library. */
+  source?: 'providers' | 'models' | 'routes' | 'storageProviders';
 }
 
 export interface NodeDefinition {
@@ -702,7 +704,34 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]));
 
+/**
+ * Dynamic node library (Phase 8): definitions returned by the backend
+ * (`GET /admin/nodes`) override/extend the static list below. Capability
+ * rows are converted to their engine node-type names (image → imageGeneration
+ * etc.). `mergeDynamicDefinitions` is idempotent — call it whenever the
+ * library payload arrives.
+ */
+const dynamicOverrides = new Map<string, NodeDefinition>();
+
+export function mergeDynamicDefinitions(defs: NodeDefinition[]): number {
+  for (const d of defs) dynamicOverrides.set(d.type, d);
+  return dynamicOverrides.size;
+}
+
+export function getDynamicDefinitions(): NodeDefinition[] {
+  return [...dynamicOverrides.values()];
+}
+
+/** All definitions shown in the Node Library: dynamic first, static (non-overridden) after. */
+export function allNodeDefinitions(): NodeDefinition[] {
+  const dynamic = [...dynamicOverrides.values()];
+  const staticDefs = NODE_DEFINITIONS.filter((d) => !dynamicOverrides.has(d.type));
+  return [...dynamic, ...staticDefs];
+}
+
 export function getNodeDefinition(type: string): NodeDefinition {
+  const dynamic = dynamicOverrides.get(type);
+  if (dynamic) return dynamic;
   return (
     byType.get(type) ?? {
       type,
@@ -717,6 +746,59 @@ export function getNodeDefinition(type: string): NodeDefinition {
       inputHandles: 'single',
     }
   );
+}
+
+/** Legacy canvas node type → capability key (engine tool switch). */
+export const LEGACY_TOOL_NODE_TYPES: Record<string, string> = {
+  imageModel: 'image',
+  iconModel: 'icon',
+  logoModel: 'logo',
+  object3dModel: 'object3d',
+  videoModel: 'video',
+  backgroundRemover: 'backgroundRemover',
+  upscaler: 'upscaler',
+  chatModel: 'textGeneration',
+};
+
+/** New capability-focused node type names (engine alias map). */
+export const CAPABILITY_NODE_TYPES: Record<string, string> = {
+  imageGeneration: 'image',
+  iconGeneration: 'icon',
+  logoGeneration: 'logo',
+  object3dGeneration: 'object3d',
+  videoGeneration: 'video',
+  backgroundRemoval: 'backgroundRemover',
+  imageUpscaling: 'upscaler',
+  textGeneration: 'textGeneration',
+};
+
+/** Reverse: capability key → preferred canvas node type name. */
+export const CAPABILITY_NODE_TYPE_BY_KEY: Record<string, string> = Object.fromEntries(
+  Object.entries(CAPABILITY_NODE_TYPES).map(([nodeType, key]) => [key, nodeType]),
+);
+
+export function toolKeyForNodeType(nodeType: string): string | null {
+  return (
+    LEGACY_TOOL_NODE_TYPES[nodeType] ??
+    CAPABILITY_NODE_TYPES[nodeType] ??
+    null
+  );
+}
+
+const FALLBACK_META = { color: 'text-slate-400', swatch: 'bg-slate-500' };
+
+/** Category meta with a fallback for backend-defined categories. */
+export function categoryMeta(category: Category | string): { color: string; swatch: string } {
+  return CATEGORY_META[category as Category] ?? FALLBACK_META;
+}
+
+/** Static order + any extra categories introduced by the dynamic library. */
+export function categoryOrder(defs: NodeDefinition[] = allNodeDefinitions()): Category[] {
+  const order = [...CATEGORY_ORDER];
+  for (const d of defs) {
+    if (!order.includes(d.category)) order.push(d.category);
+  }
+  return order;
 }
 
 export const CATEGORY_ORDER: Category[] = ['AI', 'Provider', 'Logic', 'Memory', 'System', 'Storage', 'Triggers', 'Canvas'];

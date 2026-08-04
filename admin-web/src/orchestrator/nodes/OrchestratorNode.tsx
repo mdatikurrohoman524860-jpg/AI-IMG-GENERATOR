@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { getNodeDefinition, CATEGORY_META } from '../nodeRegistry';
+import { getNodeDefinition, categoryMeta, toolKeyForNodeType } from '../nodeRegistry';
 import { FieldEditor } from '../fields/FieldEditor';
 import { useWorkflowStore, statusColor, type NodeStatus, type NodeData } from '../store/workflowStore';
 
@@ -27,7 +27,6 @@ function StatusPill({ status }: { status?: NodeStatus }) {
 export const OrchestratorNode = memo(function OrchestratorNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as NodeData;
   const def = getNodeDefinition(d.type);
-  const meta = CATEGORY_META[def.category];
   const status = useWorkflowStore((s) => s.nodeStatuses[id]);
   const enabled = d.config.enabled !== false;
   const comment = String(d.config.comment ?? '');
@@ -43,6 +42,21 @@ export const OrchestratorNode = memo(function OrchestratorNode({ id, data, selec
     if (['chatModel', 'imageModel', 'videoModel', 'audioModel', 'embeddingModel', 'speechToText', 'textToSpeech', 'ocr'].includes(d.type)) {
       return `${String(d.config.provider ?? '')} · ${String(d.config.model ?? '')}`;
     }
+    if (d.type === 'modelNode') {
+      return `${String(d.config.provider ?? '—')} · ${String(d.config.model ?? 'auto')}`;
+    }
+    if (d.type === 'modelRoute') {
+      return String(d.config.routeId ?? '') ? `route: ${d.config.routeId}` : 'inline fallback route';
+    }
+    if (d.type === 'storageNode') {
+      return String(d.config.storage ?? '') ? `→ ${d.config.storage}` : '→ active provider';
+    }
+    if (toolKeyForNodeType(d.type)) {
+      const chain = Array.isArray(d.config.chain) && d.config.chain.length ? d.config.chain : [];
+      return chain.length
+        ? `chain: ${chain.map((s: { provider?: string }) => s.provider ?? '?').join(' → ')}`
+        : 'auto — model binding from connected node';
+    }
     if (d.type === 'trigger' || d.type === 'logger') {
       return String(d.config.name ?? def.label);
     }
@@ -50,13 +64,35 @@ export const OrchestratorNode = memo(function OrchestratorNode({ id, data, selec
     return def.description;
   };
 
+  const isModelProvider = d.type === 'modelNode' || d.type === 'modelRoute';
+  const toolKey = toolKeyForNodeType(d.type);
+
   return (
     <div
       className={`orchestrator-node group relative w-[230px] rounded-xl border bg-elevated shadow-[0_4px_20px_rgba(0,0,0,0.35)] transition-all duration-200 ${
         selected ? 'border-cyan-400 ring-2 ring-cyan-400/25' : 'border-line hover:border-line/80'
       } ${enabled ? '' : 'opacity-50'}`}
     >
-      <Handle type="target" position={Position.Left} className="!h-2.5 !w-2.5 !border-0 !bg-cyan-400" />
+      {!isModelProvider && (
+        <>
+          {d.type === 'storageNode' ? (
+            (['image', 'video', 'audio', 'file', 'data'] as const).map((port, i) => (
+              <Handle
+                key={port}
+                id={port}
+                type="target"
+                position={Position.Left}
+                style={{ top: `${16 + i * 16}%` }}
+                className="!h-2 !w-2 !border-0 !bg-teal-400"
+              />
+            ))
+          ) : toolKey ? (
+            <Handle id="model" type="target" position={Position.Left} className="!h-2.5 !w-2.5 !border-0 !bg-cyan-400" />
+          ) : (
+            <Handle type="target" position={Position.Left} className="!h-2.5 !w-2.5 !border-0 !bg-cyan-400" />
+          )}
+        </>
+      )}
       {def.outputHandles === 'if' ? (
         <>
           <Handle
@@ -72,6 +108,25 @@ export const OrchestratorNode = memo(function OrchestratorNode({ id, data, selec
             className="!top-[66%] !h-2.5 !w-2.5 !border-0 !bg-rose-400"
           />
         </>
+      ) : isModelProvider ? (
+        <>
+          <Handle
+            id="model"
+            type="source"
+            position={Position.Right}
+            style={{ top: '32%' }}
+            className="!h-2.5 !w-2.5 !border-0 !bg-blue-400"
+          />
+          <Handle
+            id="route"
+            type="source"
+            position={Position.Right}
+            style={{ top: '64%' }}
+            className="!h-2.5 !w-2.5 !border-0 !bg-violet-400"
+          />
+        </>
+      ) : toolKey ? (
+        <Handle id="artifact" type="source" position={Position.Right} className="!h-2.5 !w-2.5 !border-0 !bg-blue-400" />
       ) : (
         <Handle type="source" position={Position.Right} className="!h-2.5 !w-2.5 !border-0 !bg-blue-400" />
       )}
@@ -85,7 +140,7 @@ export const OrchestratorNode = memo(function OrchestratorNode({ id, data, selec
             <span className="truncate text-[13px] font-semibold text-inktext">{d.name || def.label}</span>
             <StatusPill status={status?.status} />
           </div>
-          <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: meta.color }}>
+          <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: categoryMeta(def.category).color }}>
             {def.category} · {def.label}
           </div>
         </div>

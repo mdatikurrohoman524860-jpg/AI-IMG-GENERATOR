@@ -1,18 +1,8 @@
 import { useState } from 'react';
-import { getNodeDefinition, CATEGORY_META } from '../nodeRegistry';
+import { getNodeDefinition, toolKeyForNodeType } from '../nodeRegistry';
 import { useWorkflowStore, statusColor } from '../store/workflowStore';
 import { FieldEditor } from '../fields/FieldEditor';
 import { ChainEditor, type ChainCapability } from './ChainEditor';
-
-const TOOL_NODE_TYPES: Record<string, string> = {
-  imageModel: 'image',
-  iconModel: 'icon',
-  logoModel: 'logo',
-  object3dModel: 'object3d',
-  videoModel: 'video',
-  backgroundRemover: 'backgroundRemover',
-  upscaler: 'upscaler',
-};
 
 function capabilityFor(nodeType: string): ChainCapability {
   return nodeType === 'videoModel' ? 'video' : 'image';
@@ -51,7 +41,10 @@ export function PropertiesPanel() {
 
   const node = selNodes[0];
   const def = getNodeDefinition(node.data.type);
-  const meta = CATEGORY_META[def.category];
+  const meta = def.category === 'AI' || def.category === 'Provider'
+    ? { color: 'text-cyan-400' }
+    : { color: 'text-slate-400' };
+  const toolKey = toolKeyForNodeType(node.data.type);
   const status = nodeStatuses[node.id];
   const multiple = selNodes.length > 1;
   const name = localName ?? node.data.name;
@@ -137,7 +130,7 @@ export function PropertiesPanel() {
                   Settings
                 </span>
                 <div className="space-y-3">
-                  {TOOL_NODE_TYPES[node.data.type] ? (
+                  {toolKey ? (
                     <>
                       <ChainEditor nodeId={node.id} capability={capabilityFor(node.data.type)} />
                       {def.fields
@@ -148,6 +141,7 @@ export function PropertiesPanel() {
                             <FieldEditor
                               field={field}
                               value={node.data.config[field.key]}
+                              sourceContext={node.data.config.provider}
                               onChange={(value) => updateNodeConfig(node.id, { [field.key]: value })}
                             />
                           </label>
@@ -160,6 +154,7 @@ export function PropertiesPanel() {
                         <FieldEditor
                           field={field}
                           value={node.data.config[field.key]}
+                          sourceContext={node.data.config.provider}
                           onChange={(value) => updateNodeConfig(node.id, { [field.key]: value })}
                         />
                       </label>

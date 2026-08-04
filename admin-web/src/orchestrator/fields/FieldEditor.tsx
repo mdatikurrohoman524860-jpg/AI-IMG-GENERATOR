@@ -1,16 +1,90 @@
+import { useId } from 'react';
 import type { NodeField } from '../nodeRegistry';
+import { useNodeLibraryStore } from '../dynamicLibrary';
+
+function useSourceOptions(source: NodeField['source'], sourceContext: unknown) {
+  const providers = useNodeLibraryStore((s) => s.providers);
+  const storageProviders = useNodeLibraryStore((s) => s.storageProviders);
+  const modelRoutes = useNodeLibraryStore((s) => s.modelRoutes);
+
+  if (source === 'providers') {
+    const sorted = [...providers].sort(
+      (a, b) => Number(b.enabled && b.apiKeyConfigured) - Number(a.enabled && a.apiKeyConfigured),
+    );
+    return sorted.map((p) => ({ value: p.name, label: p.displayName || p.name }));
+  }
+  if (source === 'models') {
+    const providerName = String(sourceContext ?? '');
+    const provider = providers.find((p) => p.name === providerName || p.displayName === providerName);
+    if (!provider?.models?.length) return [];
+    return provider.models.map((m) => ({
+      value: m.internalName,
+      label: m.displayName || m.internalName,
+    }));
+  }
+  if (source === 'routes') {
+    return modelRoutes.map((r) => ({ value: r.name, label: r.name }));
+  }
+  if (source === 'storageProviders') {
+    const sorted = [...storageProviders].sort((a, b) => Number(b.isActive) - Number(a.isActive));
+    return sorted.map((p) => ({ value: p.name, label: `${p.name} (${p.driver})` }));
+  }
+  return [];
+}
 
 export function FieldEditor({
   field,
   value,
   onChange,
+  sourceContext,
 }: {
   field: NodeField;
   value: unknown;
   onChange: (value: unknown) => void;
+  /** Used by source='models' — the provider currently selected on the node. */
+  sourceContext?: unknown;
 }) {
   const base =
     'w-full rounded-lg border border-line bg-ink px-2.5 py-1.5 text-xs text-inktext outline-none placeholder:text-faint focus:border-blue';
+  const datalistId = useId();
+  const sourceOptions = useSourceOptions(field.source, sourceContext);
+
+  if (field.source) {
+    if (!sourceOptions.length) {
+      return (
+        <>
+          <input
+            value={String(value ?? '')}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={field.placeholder ?? '— none configured —'}
+            className={base}
+          />
+          <p className="mt-1 text-[9px] text-faint">No {field.source} configured in Admin.</p>
+        </>
+      );
+    }
+    return (
+      <>
+        <input
+          value={String(value ?? '')}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder ?? ''}
+          list={datalistId}
+          className={base}
+        />
+        <datalist id={datalistId}>
+          {sourceOptions.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </datalist>
+        {value && !sourceOptions.some((o) => o.value === value) && (
+          <p className="mt-1 text-[9px] text-amber-300/70">Custom value — not in the live list.</p>
+        )}
+      </>
+    );
+  }
 
   if (field.type === 'toggle') {
     return (

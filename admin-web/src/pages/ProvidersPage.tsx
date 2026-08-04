@@ -2,19 +2,29 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createAdminProvider,
+  createAdminProviderCredential,
   createAdminProviderModel,
+  deleteAdminProviderCredential,
   deleteAdminProviderModel,
   fetchAdminProviders,
   testAdminProvider,
+  testAdminProviderCredential,
   updateAdminProvider,
+  updateAdminProviderCredential,
   updateAdminProviderModel,
 } from '../api/admin';
 import { errorMessage } from '../api/client';
-import type { ProviderAdmin, ProviderModel } from '../api/types';
+import type {
+  ProviderAdmin,
+  ProviderCredential,
+  ProviderModel,
+  ProviderTestResult,
+} from '../api/types';
 import {
   ActionButton,
   Badge,
   ErrorBlock,
+  formatDate,
   InlineMessage,
   LoadingBlock,
   Modal,
@@ -220,11 +230,135 @@ function ModelEditor({
   );
 }
 
+interface CredentialForm {
+  label: string;
+  apiKey: string;
+  enabled: boolean;
+  priority: number;
+}
+
+function CredentialModal({
+  provider,
+  credential,
+  onClose,
+}: {
+  provider: ProviderAdmin;
+  credential: ProviderCredential | null;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<CredentialForm>({
+    label: credential?.label ?? '',
+    apiKey: '',
+    enabled: credential?.enabled ?? true,
+    priority: credential?.priority ?? 0,
+  });
+  const [error, setError] = useState('');
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (credential) {
+        const patch: Record<string, unknown> = {
+          label: form.label.trim() || undefined,
+          enabled: form.enabled,
+          priority: form.priority,
+        };
+        if (form.apiKey.trim()) patch.apiKey = form.apiKey.trim();
+        await updateAdminProviderCredential(provider.id, credential.id, patch);
+      } else {
+        if (!form.apiKey.trim()) throw new Error('API key is required');
+        await createAdminProviderCredential(provider.id, {
+          label: form.label.trim() || undefined,
+          apiKey: form.apiKey.trim(),
+          enabled: form.enabled,
+          priority: form.priority,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: providersKey });
+      onClose();
+    },
+    onError: (err) => setError(errorMessage(err)),
+  });
+
+  return (
+    <Modal
+      open
+      title={
+        credential
+          ? `Edit key ${credential.label} (${provider.displayName})`
+          : `Add API key (${provider.displayName})`
+      }
+      onClose={onClose}
+    >
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-faint">Label</span>
+            <input
+              value={form.label}
+              onChange={(e) => setForm({ ...form, label: e.target.value })}
+              placeholder="e.g. prod-1"
+              className="w-full rounded-lg border border-line bg-ink px-2.5 py-1.5 text-xs text-inktext outline-none placeholder:text-faint focus:border-blue"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-faint">Priority (lower = tried first)</span>
+            <input
+              type="number"
+              value={form.priority}
+              onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
+              className="w-full rounded-lg border border-line bg-ink px-2.5 py-1.5 text-xs text-inktext outline-none focus:border-blue"
+            />
+          </label>
+        </div>
+        <label className="block">
+          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-faint">
+            API key {credential ? '(leave blank to keep current)' : ''}
+          </span>
+          <input
+            type="password"
+            value={form.apiKey}
+            onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+            placeholder="sk-…"
+            className="w-full rounded-lg border border-line bg-ink px-2.5 py-1.5 text-xs text-inktext outline-none placeholder:text-faint focus:border-blue"
+          />
+        </label>
+        <label className="flex items-center justify-between rounded-lg border border-line bg-elevated px-2.5 py-2">
+          <span className="text-[11px] text-muted">Enabled</span>
+          <Toggle checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} />
+        </label>
+        {credential && (
+          <p className="text-[11px] text-faint">
+            Rotating a key resets its failure streak and last error. Keys are stored encrypted.
+          </p>
+        )}
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        <ActionButton onClick={onClose}>Cancel</ActionButton>
+        <ActionButton tone="primary" onClick={() => save.mutate()} disabled={save.isPending}>
+          {save.isPending ? 'Saving…' : credential ? 'Save' : 'Add key'}
+        </ActionButton>
+      </div>
+      <InlineMessage message={error} tone="error" />
+    </Modal>
+  );
+}
+
 function ProviderRow({ provider }: { provider: ProviderAdmin }) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editingModel, setEditingModel] = useState<ProviderModel | null | undefined>(undefined);
+  const [keysExpanded, setKeysExpanded] = useState(false);
+  const [editingCredential, setEditingCredential] = useState<
+    ProviderCredential | null | 'new' | undefined
+  >(undefined);
+  const [credentialTest, setCredentialTest] = useState<{
+    credentialId: string;
+    result: ProviderTestResult;
+  } | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const invalidate = () => queryClient.invalidateQueries({ queryKey: providersKey });
 
@@ -242,6 +376,30 @@ function ProviderRow({ provider }: { provider: ProviderAdmin }) {
   const removeModel = useMutation({
     mutationFn: (modelId: string) => deleteAdminProviderModel(provider.id, modelId),
     onSuccess: invalidate,
+  });
+
+  const toggleCredential = useMutation({
+    mutationFn: ({ credentialId, enabled }: { credentialId: string; enabled: boolean }) =>
+      updateAdminProviderCredential(provider.id, credentialId, { enabled }),
+    onSuccess: invalidate,
+  });
+
+  const removeCredential = useMutation({
+    mutationFn: (credentialId: string) =>
+      deleteAdminProviderCredential(provider.id, credentialId),
+    onSuccess: invalidate,
+  });
+
+  const runCredentialTest = useMutation({
+    mutationFn: (credentialId: string) =>
+      testAdminProviderCredential(provider.id, credentialId),
+    onSuccess: (result, credentialId) =>
+      setCredentialTest({ credentialId, result }),
+    onError: (err, credentialId) =>
+      setCredentialTest({
+        credentialId,
+        result: { ok: false, latencyMs: 0, status: 0, message: errorMessage(err) },
+      }),
   });
 
   const runTest = useMutation({
@@ -274,6 +432,12 @@ function ProviderRow({ provider }: { provider: ProviderAdmin }) {
           className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted hover:bg-elevated"
         >
           {expanded ? 'Hide models' : 'Models'}
+        </button>
+        <button
+          onClick={() => setKeysExpanded((v) => !v)}
+          className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted hover:bg-elevated"
+        >
+          {keysExpanded ? 'Hide keys' : `Keys (${provider.credentials.length})`}
         </button>
         <ActionButton
           onClick={() => {
@@ -347,6 +511,102 @@ function ProviderRow({ provider }: { provider: ProviderAdmin }) {
             </button>
           )}
         </div>
+      )}
+
+      {keysExpanded && (
+        <div className="space-y-2 border-t border-line p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-faint">
+              Key pool — the engine falls through enabled keys by priority and auto-rotates on
+              failures
+            </span>
+            {editingCredential === undefined && (
+              <button
+                onClick={() => setEditingCredential('new')}
+                className="rounded-lg border border-dashed border-line px-2.5 py-1 text-[11px] text-muted hover:border-blue/40 hover:text-blue"
+              >
+                + Add key
+              </button>
+            )}
+          </div>
+          {provider.credentials.length === 0 && (
+            <div className="rounded-lg border border-dashed border-line py-3 text-center text-[11px] text-faint">
+              No pool keys — the provider's primary key is used. Add keys to enable rotation.
+            </div>
+          )}
+          {provider.credentials.map((credential) => (
+            <div
+              key={credential.id}
+              className="rounded-lg border border-line bg-elevated px-3 py-2"
+            >
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-xs font-semibold text-inktext">
+                      {credential.label || 'Default'}
+                    </span>
+                    <span className="font-mono text-[10px] text-faint">
+                      {credential.apiKeyMasked ?? 'no key'}
+                    </span>
+                    {credential.failureStreak > 0 && (
+                      <Badge tone="red">{credential.failureStreak} fail</Badge>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-faint">
+                    priority {credential.priority}
+                    {credential.lastUsedAt ? ` · last used ${formatDate(credential.lastUsedAt)}` : ''}
+                    {credential.lastError ? ` · ${credential.lastError.slice(0, 80)}` : ''}
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setCredentialTest(null);
+                    runCredentialTest.mutate(credential.id);
+                  }}
+                  disabled={runCredentialTest.isPending}
+                  className="rounded px-1.5 py-0.5 text-[11px] text-muted hover:bg-line"
+                >
+                  {runCredentialTest.isPending ? '…' : 'test'}
+                </button>
+                <button
+                  onClick={() => setEditingCredential(credential)}
+                  className="rounded px-1.5 py-0.5 text-[11px] text-muted hover:bg-line"
+                >
+                  edit
+                </button>
+                <button
+                  onClick={() => removeCredential.mutate(credential.id)}
+                  className="rounded px-1.5 py-0.5 text-[11px] text-red-400 hover:bg-red-500/10"
+                >
+                  ✕
+                </button>
+                <Toggle
+                  checked={credential.enabled}
+                  onChange={(v) => toggleCredential.mutate({ credentialId: credential.id, enabled: v })}
+                />
+              </div>
+              {credentialTest?.credentialId === credential.id && (
+                <div className="mt-1.5 border-t border-line pt-1.5 text-[11px]">
+                  <span className={credentialTest.result.ok ? 'text-emerald' : 'text-red'}>
+                    {credentialTest.result.ok ? '✓ ' : '✗ '}
+                    {credentialTest.result.message}
+                    {credentialTest.result.latencyMs > 0
+                      ? ` (${credentialTest.result.latencyMs}ms)`
+                      : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editingCredential !== undefined && (
+        <CredentialModal
+          provider={provider}
+          credential={editingCredential === 'new' ? null : editingCredential}
+          onClose={() => setEditingCredential(undefined)}
+        />
       )}
 
       {editing && (

@@ -61,6 +61,18 @@ export interface ProviderModel {
   costPer1kOut: number;
 }
 
+export interface ProviderCredential {
+  id: string;
+  label: string;
+  enabled: boolean;
+  priority: number;
+  failureStreak: number;
+  lastUsedAt: string | null;
+  lastError: string | null;
+  apiKeyConfigured: boolean;
+  apiKeyMasked: string | null;
+}
+
 export interface ProviderAdmin {
   id: string;
   name: string;
@@ -76,6 +88,7 @@ export interface ProviderAdmin {
   failureStreak: number;
   apiKeyConfigured: boolean;
   models: ProviderModel[];
+  credentials: ProviderCredential[];
   apiKeyMasked: string | null;
   updatedAt: string;
 }
@@ -148,6 +161,95 @@ export interface RoutingVariable {
   description: string | null;
   enabled: boolean;
   routes: RoutingVariableRoute[];
+}
+
+export type StorageDriver = 'local' | 'cloudinary' | 's3' | 'r2' | 'supabase';
+
+export interface StorageProvider {
+  id: string;
+  name: string;
+  driver: StorageDriver;
+  enabled: boolean;
+  isActive: boolean;
+  priority: number;
+  configConfigured: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ModelRouteStep {
+  provider: string;
+  model: string;
+  priority?: number;
+}
+
+export interface ModelRoute {
+  id: string;
+  name: string;
+  description: string | null;
+  steps: ModelRouteStep[];
+  retryPolicy: Record<string, unknown>;
+  enabled: boolean;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NodeDefinitionPort {
+  id?: string;
+  label?: string;
+  type?: string;
+  source?: string;
+}
+
+export interface NodeDefinitionParam {
+  key: string;
+  label?: string;
+  type?: 'text' | 'number' | 'select' | 'toggle' | 'slider' | 'textarea' | 'file';
+  options?: Array<string | { value: string; label: string }>;
+  placeholder?: string;
+  default?: unknown;
+  source?: string;
+}
+
+export interface NodeDefinition {
+  key: string;
+  kind: string;
+  category: string;
+  name: string;
+  description: string | null;
+  icon: string;
+  color: string;
+  inputPorts: NodeDefinitionPort[];
+  outputPorts: NodeDefinitionPort[];
+  paramSchema: NodeDefinitionParam[];
+  defaults: Record<string, unknown>;
+  enabled: boolean;
+  hasRuntime: boolean;
+  updatedAt: string;
+}
+
+export interface NodeLibrary {
+  definitions: NodeDefinition[];
+  capabilities: Array<
+    NodeDefinition & {
+      capability: string;
+      requiresInput: boolean;
+      hasRuntime: boolean;
+      defaultChain: Array<{ provider: string; model: string }>;
+    }
+  >;
+  providers: Array<{ id: string; name: string; displayName: string; enabled: boolean }>;
+  storageProviders: Array<{
+    id: string;
+    name: string;
+    driver: string;
+    enabled: boolean;
+    isActive: boolean;
+    priority: number;
+    configConfigured: boolean;
+  }>;
+  modelRoutes: Array<{ id: string; name: string; enabled: boolean }>;
 }
 
 export interface ProviderTestResult {
